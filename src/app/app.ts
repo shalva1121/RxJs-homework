@@ -1,6 +1,5 @@
 import { Component, inject } from '@angular/core';
 import { AsyncPipe, NgFor, NgIf } from '@angular/common';
-import { HttpClient, HttpParams } from '@angular/common/http';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import {
   Observable,
@@ -12,25 +11,8 @@ import {
   startWith,
   switchMap,
 } from 'rxjs';
-
-interface Product {
-  id: number;
-  name: string;
-  price: number;
-  nuts: boolean;
-  vegeterian: boolean;
-  spiciness: number;
-  image?: string;
-  category?: { name?: string };
-}
-
-interface ViewState {
-  loading: boolean;
-  error: string;
-  products: Product[];
-}
-
-const API = 'https://restaurant.stepprojects.ge/api/Products';
+import { Product, ViewState } from './models';
+import { ProductService } from './services/product.service';
 
 @Component({
   selector: 'app-root',
@@ -39,7 +21,7 @@ const API = 'https://restaurant.stepprojects.ge/api/Products';
   styleUrl: './app.css',
 })
 export class App {
-  private http = inject(HttpClient);
+  private productService = inject(ProductService);
   private fb = inject(FormBuilder);
 
   // 'any' = don't filter by this field
@@ -55,7 +37,7 @@ export class App {
     debounceTime(250),
     distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b)),
     switchMap((filters) =>
-      this.load(filters).pipe(
+      this.productService.getProducts(filters).pipe(
         map((products): ViewState => ({ loading: false, error: '', products })),
         catchError(() =>
           of<ViewState>({ loading: false, error: 'Could not load products.', products: [] })
@@ -64,20 +46,6 @@ export class App {
       )
     )
   );
-
-  private load(f: { vegeterian: string; nuts: string; spiciness: string }): Observable<Product[]> {
-    const isAny = f.vegeterian === 'any' && f.nuts === 'any' && f.spiciness === 'any';
-    if (isAny) {
-      return this.http.get<Product[]>(`${API}/GetAll`);
-    }
-
-    let params = new HttpParams();
-    if (f.vegeterian !== 'any') params = params.set('vegeterian', f.vegeterian);
-    if (f.nuts !== 'any') params = params.set('nuts', f.nuts);
-    if (f.spiciness !== 'any') params = params.set('spiciness', f.spiciness);
-
-    return this.http.get<Product[]>(`${API}/GetFiltered`, { params });
-  }
 
   trackById(_: number, p: Product) {
     return p.id;
